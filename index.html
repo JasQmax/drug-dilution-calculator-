@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drug Dilution Calculator</title>
+
+  <!-- PWA / app manifest -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#007acc">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <!-- optional maskable icon for supported platforms -->
+  <link rel="icon" href="/icons/icon-192.png" sizes="192x192">
+  
+  <style>
+    /* Make all drop-downs (select elements) larger for better readability */
+    select {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    /* Try to enlarge option text where supported by the browser */
+    select option {
+      font-size: 1rem;
+    }
+
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f4f7fa;
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background: #007acc;
+      color: white;
+      text-align: center;
+      padding: 1rem;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 2rem auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    h2 {
+      border-bottom: 2px solid #007acc;
+      padding-bottom: 0.3rem;
+      color: #007acc;
+    }
+
+    label {
+      display: block;
+      margin-top: 1rem;
+      font-weight: 600;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 0.6rem;
+      margin-top: 0.3rem;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      margin-top: 1.5rem;
+      background: #007acc;
+      color: white;
+      border: none;
+      padding: 0.8rem 1.5rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    button:hover {
+      background: #005fa3;
+    }
+
+    .result {
+      background: #e9f3ff;
+      margin-top: 1.5rem;
+      padding: 1rem;
+      border-left: 4px solid #007acc;
+      border-radius: 5px;
+      display: none;
+    }
+
+    .note {
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: #555;
+      background: #f9f9f9;
+      padding: 1rem;
+      border-radius: 5px;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 1rem;
+      }
+      button {
+        width: 100%;
+      }
+    }
+
+    /* Color mcg/mL green and mg/mL blue (also apply to mcg/mg where used) */
+    select option[value="mcg/mL"],
+    select option[value="mcg"] {
+      color: #2ca02c; /* green */
+    }
+
+    select option[value="mg/mL"],
+    select option[value="mg"] {
+      color: #1f77b4; /* blue */
+    }
+
+    /* Make unit selects larger and bolder for easier reading */
+    #stockUnits,
+    #desiredUnits,
+    #desiredPowderUnits,
+    #powderUnits {
+      font-size: 1.25rem;
+      font-weight: 700;
+      padding: 0.5rem;
+    }
+
+    /* Try to increase option font where supported by the browser */
+    #stockUnits option,
+    #desiredUnits option,
+    #desiredPowderUnits option,
+    #powderUnits option {
+      font-size: 1.15rem;
+    }
+
+    /* Calculation reveal area */
+    .calc-details {
+      display: none;
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: #fff;
+      border: 1px dashed #ccc;
+      font-family: "Courier New", monospace;
+      font-size: 0.95rem;
+      white-space: pre-wrap;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Drug Dilution Calculator</h1>
+    <p>Calculate required dilution for solution or powder forms</p>
+  </header>
+
+  <div class="container">
+    <h2>General Dilution Calculator</h2>
+
+    <label for="formType">Select drug form:</label>
+    <select id="formType">
+      <option value="solution">Solution (mg/mL or mcg/mL)</option>
+      <option value="powder">Powder (mg, g, or mcg) — dissolve then dilute</option>
+    </select>
+
+    <!-- Solution input section -->
+    <div id="solution-section">
+      <label for="stockConc">Stock concentration:</label>
+      <input type="number" id="stockConc" min="0" placeholder="e.g., 10" />
+
+      <label for="stockUnits">Units:</label>
+      <select id="stockUnits">
+        <option value="mg/mL">mg/mL</option>
+        <option value="mcg/mL">mcg/mL</option>
+      </select>
+
+      <label for="desiredConc">Desired concentration:</label>
+      <input type="number" id="desiredConc" min="0" placeholder="e.g., 1" />
+
+      <label for="desiredUnits">Units:</label>
+      <select id="desiredUnits">
+        <option value="mg/mL">mg/mL</option>
+        <option value="mcg/mL">mcg/mL</option>
+      </select>
+
+      <label for="desiredVol">Final volume (mL):</label>
+      <input type="number" id="desiredVol" min="0" placeholder="e.g., 100" />
+    </div>
+
+    <!-- Powder input section -->
+    <div id="powder-section" style="display:none;">
+      <label for="powderMass">Powder mass available (total):</label>
+      <input type="number" id="powderMass" min="0" placeholder="e.g., 500" />
+
+      <label for="powderUnits">Units:</label>
+      <select id="powderUnits">
+        <option value="mcg">mcg</option>
+        <option value="mg">mg</option>
+        <option value="g">g</option>
+      </select>
+
+      <label for="initialStockVol">Dissolve the total powder into (mL) to make a stock solution:</label>
+      <input type="number" id="initialStockVol" min="0" placeholder="e.g., 100" />
+
+      <label for="desiredPowderConc">Desired concentration:</label>
+      <input type="number" id="desiredPowderConc" min="0" placeholder="e.g., 10" />
+
+      <label for="desiredPowderUnits">Units:</label>
+      <select id="desiredPowderUnits">
+        <option value="mcg/mL">mcg/mL</option>
+        <option value="mg/mL">mg/mL</option>
+      </select>
+
+      <label for="desiredPowderVol">Desired total volume (mL):</label>
+      <input type="number" id="desiredPowderVol" min="0" placeholder="e.g., 50" />
+
+      <div class="note">
+        You cannot weigh sub-mg amounts directly. Dissolve the entire powder mass in a known volume (above)
+        to prepare a stock solution, then withdraw a measured volume of that stock and dilute to the final volume.
+      </div>
+    </div>
+
+    <button onclick="calculate()">Calculate</button>
+    <button type="button" onclick="clearAll()" style="margin-left:8px; background:#666;">Clear</button>
+    <button type="button" id="toggleCalcBtn" style="margin-left:8px; display:none; background:#444;" onclick="toggleCalc()">Show calculations</button>
+
+    <div class="result" id="result"></div>
+    <div id="calcDetails" class="calc-details" aria-hidden="true"></div>
+  </div>
+  
+  <div class="container">
+    <h2>Local Anesthetic Dilution</h2>
+
+    <label for="localDrug">Select anesthetic:</label>
+    <select id="localDrug">
+      <option value="lidocaine">Lidocaine</option>
+      <option value="bupivacaine">Bupivacaine</option>
+      <option value="levobupivacaine">Levobupivacaine</option>
+      <option value="ropivacaine">Ropivacaine</option>
+      
+    </select>
+
+    <label for="localStockPercent">Stock concentration (%):</label>
+    <input type="number" id="localStockPercent" min="0" step="0.01" placeholder="e.g., 2 — leave blank to use standard" />
+
+    <label for="desiredPercent">Desired concentration (%):</label>
+    <input type="number" id="desiredPercent" min="0" placeholder="e.g., 0.25" />
+
+    <label for="desiredTotalVol">Final total volume (mL):</label>
+    <input type="number" id="desiredTotalVol" min="0" placeholder="e.g., 50" />
+
+    <button onclick="calculateLocal()">Calculate Local Dilution</button>
+    <button type="button" onclick="clearAll()" style="margin-left:8px; background:#666;">Clear</button>
+    <button type="button" id="toggleLocalCalcBtn" style="margin-left:8px; display:none; background:#444;" onclick="toggleLocalCalc()">Show calculations</button>
+
+    <div class="result" id="localResult"></div>
+    <div id="localCalcDetails" class="calc-details" aria-hidden="true"></div>
+
+    <div class="note">
+      <strong>Note:</strong> Local anesthetic concentrations are expressed as percentages.  
+      1% = 10 mg/mL.  
+      Example: 1% lidocaine = 10 mg/mL, 0.5% bupivacaine = 5 mg/mL.
+    </div>
+  </div>
+
+  <div class="container" aria-hidden="false" style="margin-bottom:2rem;">
+    <div class="note" style="background:#fff7f0; border-left:4px solid #0095ff;">
+      <strong>Medical Disclaimer:</strong> The calculations and content presented are intended for use by healthcare professionals as a supplementary tool and are not a substitute for independent medical judgment. While efforts are made to ensure accuracy, we do not warrant that the information is complete or error-free. Users must verify all calculations and data before use on patients and should not rely solely on this tool to guide patient care or substitute for clinical judgment. The creators and distributors of this tool disclaim any and all responsibility or liability for any injury or damage resulting from its use.
+    </div>
+  </div>
+
+  <script>
+    const formType = document.getElementById("formType");
+    const solutionSection = document.getElementById("solution-section");
+    const powderSection = document.getElementById("powder-section");
+    const resultDiv = document.getElementById("result");
+    const localResult = document.getElementById("localResult");
+
+    // conversions
+    function convertToMgPerMl(value, unit) {
+      if (!isFinite(value)) return NaN;
+      if (unit === "mcg/mL") return value / 1000;
+      return value; // mg/mL
+    }
+
+    function convertPowderMassToMg(mass, unit) {
+      if (!isFinite(mass)) return NaN;
+      if (unit === "g") return mass * 1000;
+      if (unit === "mcg") return mass / 1000;
+      return mass; // mg
+    }
+
+    function convertDesiredConcToMgPerMl(value, unit) {
+      if (!isFinite(value)) return NaN;
+      if (unit === "mcg/mL") return value / 1000;
+      return value;
+    }
+
+    // ensure unit selects reflect colored values on load and change
+    function updateSelectColor(select) {
+      if (!select) return;
+      const v = String(select.value).toLowerCase();
+      if (v.includes("mcg")) {
+        select.style.color = "#2ca02c"; // green for mcg
+      } else if (v.includes("mg")) {
+        select.style.color = "#1f77b4"; // blue for mg
+      } else {
+        select.style.color = ""; // default
+      }
+    }
+
+    ["stockUnits","desiredUnits","desiredPowderUnits","powderUnits"].forEach(id => {
+      const s = document.getElementById(id);
+      if (!s) return;
+      updateSelectColor(s);
+      s.addEventListener("change", () => updateSelectColor(s));
+    });
+ 
+    formType.addEventListener("change", () => {
+      if (formType.value === "solution") {
+        solutionSection.style.display = "block";
+        powderSection.style.display = "none";
+      } else {
+        solutionSection.style.display = "none";
+        powderSection.style.display = "block";
+      }
+      resultDiv.style.display = "none";
+      // hide calc reveal if switching
+      document.getElementById("calcDetails").style.display = "none";
+      document.getElementById("toggleCalcBtn").style.display = "none";
+    });
+
+    function calculate() {
+      resultDiv.style.display = "none";
+      resultDiv.innerHTML = "";
+      const calcDiv = document.getElementById("calcDetails");
+      calcDiv.style.display = "none";
+      calcDiv.textContent = "";
+      document.getElementById("toggleCalcBtn").style.display = "none";
+
+      if (formType.value === "solution") {
+        const stockConc = parseFloat(document.getElementById("stockConc").value);
+        const desiredConc = parseFloat(document.getElementById("desiredConc").value);
+        const desiredVol = parseFloat(document.getElementById("desiredVol").value);
+        const stockUnits = document.getElementById("stockUnits").value;
+        const desiredUnits = document.getElementById("desiredUnits").value;
+
+        if (!isFinite(stockConc) || !isFinite(desiredConc) || !isFinite(desiredVol) ||
+            stockConc <= 0 || desiredConc <= 0 || desiredVol <= 0) {
+          alert("Please enter valid positive numbers.");
+          return;
+        }
+
+        const stockConc_mgml = convertToMgPerMl(stockConc, stockUnits);
+        const desiredConc_mgml = convertToMgPerMl(desiredConc, desiredUnits);
+
+        if (desiredConc_mgml > stockConc_mgml) {
+          alert("Desired concentration cannot be higher than the stock concentration.");
+          return;
+        }
+
+        const volStock = (desiredConc_mgml * desiredVol) / stockConc_mgml;
+        const volDiluent = desiredVol - volStock;
+
+        resultDiv.innerHTML = `
+          <p><strong>Stock volume to use:</strong> ${volStock.toFixed(2)} mL</p>
+          <p><strong>Volume of diluent to add:</strong> ${volDiluent.toFixed(2)} mL</p>
+        `;
+        resultDiv.style.display = "block";
+
+        const calcText =
+`Formula: vol_stock = (desired_conc * final_vol) / stock_conc
+
+Inputs (converted to mg/mL where needed):
+  stock_conc = ${stockConc} ${stockUnits} = ${stockConc_mgml} mg/mL
+  desired_conc = ${desiredConc} ${desiredUnits} = ${desiredConc_mgml} mg/mL
+  final_vol = ${desiredVol} mL
+
+Calculation:
+  vol_stock = (${desiredConc_mgml} mg/mL * ${desiredVol} mL) / ${stockConc_mgml} mg/mL
+            = ${volStock.toFixed(6)} mL
+  vol_diluent = ${desiredVol} - ${volStock.toFixed(6)} = ${volDiluent.toFixed(6)} mL`;
+
+        calcDiv.textContent = calcText;
+        document.getElementById("toggleCalcBtn").style.display = "inline-block";
+
+      } else { // powder
+        const powderMass = parseFloat(document.getElementById("powderMass").value);
+        const powderUnits = document.getElementById("powderUnits").value;
+        const initialStockVol = parseFloat(document.getElementById("initialStockVol").value);
+        const desiredConc = parseFloat(document.getElementById("desiredPowderConc").value);
+        const desiredConcUnits = document.getElementById("desiredPowderUnits").value;
+        const desiredVol = parseFloat(document.getElementById("desiredPowderVol").value);
+
+        if (!isFinite(powderMass) || !isFinite(initialStockVol) || !isFinite(desiredConc) || !isFinite(desiredVol) ||
+            powderMass <= 0 || initialStockVol <= 0 || desiredConc <= 0 || desiredVol <= 0) {
+          alert("Please enter valid positive numbers for powder, volumes and concentration.");
+          return;
+        }
+
+        const powderMass_mg = convertPowderMassToMg(powderMass, powderUnits);
+        const desiredConc_mgml = convertDesiredConcToMgPerMl(desiredConc, desiredConcUnits);
+
+        const stockConc_mgml = powderMass_mg / initialStockVol; // mg/mL
+
+        if (stockConc_mgml <= 0 || !isFinite(stockConc_mgml)) {
+          alert("Calculated stock concentration is invalid. Check inputs.");
+          return;
+        }
+
+        const requiredStockVol = (desiredConc_mgml * desiredVol) / stockConc_mgml;
+
+        if (requiredStockVol > initialStockVol + 1e-9) {
+          alert("With the chosen dissolution volume, you cannot obtain the desired concentration/volume from the available powder. Try dissolving in less volume, reduce desired volume or concentration, or use more powder.");
+          return;
+        }
+
+        const diluentToAdd = desiredVol - requiredStockVol;
+        const leftoverStock_mL = initialStockVol - requiredStockVol;
+
+        resultDiv.innerHTML = `
+          <p><strong>Prepare stock:</strong> Dissolve the entire powder mass (${powderMass_mg.toFixed(2)} mg) in ${initialStockVol.toFixed(2)} mL to make a stock at <strong>${stockConc_mgml.toFixed(3)} mg/mL</strong>.</p>
+
+          <p><strong>Then:</strong> Withdraw <strong>${requiredStockVol.toFixed(2)} mL</strong> of that stock and dilute with ${diluentToAdd.toFixed(2)} mL diluent to reach a total of ${desiredVol.toFixed(2)} mL at <strong>${desiredConc} ${desiredConcUnits}</strong>.</p>
+
+          <p><strong>Leftover stock:</strong> ${leftoverStock_mL.toFixed(2)} mL of stock solution remains (contains the remaining dissolved drug).</p>
+        `;
+        resultDiv.style.display = "block";
+
+        const calcText =
+`Step 1: Stock concentration after dissolving entire powder:
+  powder_mass = ${powderMass} ${powderUnits} = ${powderMass_mg.toFixed(6)} mg
+  stock_volume = ${initialStockVol} mL
+  stock_conc = ${powderMass_mg.toFixed(6)} mg / ${initialStockVol} mL = ${stockConc_mgml.toFixed(6)} mg/mL
+
+Step 2: Volume of stock to withdraw to make final solution:
+  desired_conc = ${desiredConc} ${desiredConcUnits} = ${desiredConc_mgml} mg/mL
+  final_vol = ${desiredVol} mL
+  required_stock_vol = (desired_conc * final_vol) / stock_conc
+                     = (${desiredConc_mgml} * ${desiredVol}) / ${stockConc_mgml}
+                     = ${requiredStockVol.toFixed(6)} mL
+
+Diluent to add = final_vol - required_stock_vol = ${diluentToAdd.toFixed(6)} mL
+Leftover stock volume = ${leftoverStock_mL.toFixed(6)} mL`;
+
+        calcDiv.textContent = calcText;
+        document.getElementById("toggleCalcBtn").style.display = "inline-block";
+      }
+    }
+
+    function calculateLocal() {
+      localResult.style.display = "none";
+      localResult.innerHTML = "";
+      const localCalcDiv = document.getElementById("localCalcDetails");
+      localCalcDiv.style.display = "none";
+      localCalcDiv.textContent = "";
+      document.getElementById("toggleLocalCalcBtn").style.display = "none";
+
+      const drug = document.getElementById("localDrug").value;
+      const desiredPercent = parseFloat(document.getElementById("desiredPercent").value);
+      const desiredTotalVol = parseFloat(document.getElementById("desiredTotalVol").value);
+      const stockPercentInput = document.getElementById("localStockPercent").value;
+
+      let stockPercentUsed = null;
+      const defaultStockPercent = (drug === "lidocaine") ? 2 :
+                                  (drug === "bupivacaine") ? 0.5 :
+                                  (drug === "levobupivacaine") ? 0.5 :
+                                  (drug === "ropivacaine") ? 1 : 0;
+
+      if (stockPercentInput !== "") {
+        stockPercentUsed = parseFloat(stockPercentInput);
+        if (!isFinite(stockPercentUsed) || stockPercentUsed <= 0) {
+          alert("Please enter a valid positive number for stock % or leave blank to use the standard strength.");
+          return;
+        }
+      } else {
+        stockPercentUsed = defaultStockPercent;
+      }
+
+      if (!isFinite(desiredPercent) || !isFinite(desiredTotalVol) || desiredPercent <= 0 || desiredTotalVol <= 0) {
+        alert("Please enter valid positive numbers.");
+        return;
+      }
+
+      if (desiredPercent > stockPercentUsed) {
+        alert("Desired concentration cannot exceed the stock concentration (%) provided.");
+        return;
+      }
+
+      const stockConc_mgml = stockPercentUsed * 10;
+      const desiredConc_mgml = desiredPercent * 10;
+
+      const volStock = (desiredConc_mgml * desiredTotalVol) / stockConc_mgml;
+      const volDiluent = desiredTotalVol - volStock;
+
+      localResult.innerHTML = `
+        <p><strong>${drug.charAt(0).toUpperCase() + drug.slice(1)}</strong> stock concentration used: ${stockPercentUsed}% (${stockConc_mgml} mg/mL)</p>
+        <p>Desired concentration: ${desiredConc_mgml} mg/mL (${desiredPercent}%)</p>
+        <p><strong>Use ${volStock.toFixed(2)} mL</strong> of stock + <strong>${volDiluent.toFixed(2)} mL</strong> of diluent</p>
+      `;
+      localResult.style.display = "block";
+
+      const calcText =
+`Formula: vol_stock = (desired_conc * final_vol) / stock_conc
+
+Inputs:
+  stock_conc = ${stockPercentUsed}% = ${stockConc_mgml} mg/mL
+  desired_conc = ${desiredPercent}% = ${desiredConc_mgml} mg/mL
+  final_vol = ${desiredTotalVol} mL
+
+Calculation:
+  vol_stock = (${desiredConc_mgml} * ${desiredTotalVol}) / ${stockConc_mgml}
+            = ${volStock.toFixed(6)} mL
+  vol_diluent = ${desiredTotalVol} - ${volStock.toFixed(6)} = ${volDiluent.toFixed(6)} mL`;
+
+      localCalcDiv.textContent = calcText;
+      document.getElementById("toggleLocalCalcBtn").style.display = "inline-block";
+    }
+
+    function toggleCalc() {
+      const d = document.getElementById("calcDetails");
+      const btn = document.getElementById("toggleCalcBtn");
+      if (!d) return;
+      if (d.style.display === "none" || d.style.display === "") {
+        d.style.display = "block";
+        btn.textContent = "Hide calculations";
+        d.setAttribute("aria-hidden", "false");
+      } else {
+        d.style.display = "none";
+        btn.textContent = "Show calculations";
+        d.setAttribute("aria-hidden", "true");
+      }
+    }
+
+    function toggleLocalCalc() {
+      const d = document.getElementById("localCalcDetails");
+      const btn = document.getElementById("toggleLocalCalcBtn");
+      if (!d) return;
+      if (d.style.display === "none" || d.style.display === "") {
+        d.style.display = "block";
+        btn.textContent = "Hide calculations";
+        d.setAttribute("aria-hidden", "false");
+      } else {
+        d.style.display = "none";
+        btn.textContent = "Show calculations";
+        d.setAttribute("aria-hidden", "true");
+      }
+    }
+
+    function clearAll() {
+      // clear all input[type=number] values
+      document.querySelectorAll("input[type='number']").forEach(i => i.value = "");
+
+      // reset selects to their first option except formType
+      document.querySelectorAll("select").forEach(s => {
+        if (s.id === "formType") return;
+        s.selectedIndex = 0;
+        updateSelectColor(s);
+      });
+
+      // hide and clear result areas
+      resultDiv.style.display = "none";
+      resultDiv.innerHTML = "";
+      localResult.style.display = "none";
+      localResult.innerHTML = "";
+
+      // hide calculation details and buttons
+      const calcDiv = document.getElementById("calcDetails");
+      if (calcDiv) { calcDiv.style.display = "none"; calcDiv.textContent = ""; }
+      const localCalcDiv = document.getElementById("localCalcDetails");
+      if (localCalcDiv) { localCalcDiv.style.display = "none"; localCalcDiv.textContent = ""; }
+      const t1 = document.getElementById("toggleCalcBtn");
+      if (t1) t1.style.display = "none";
+      const t2 = document.getElementById("toggleLocalCalcBtn");
+      if (t2) t2.style.display = "none";
+
+      // ensure appropriate sections visibility after clearing (keep current formType)
+      if (formType.value === "solution") {
+        solutionSection.style.display = "block";
+        powderSection.style.display = "none";
+      } else {
+        solutionSection.style.display = "none";
+        powderSection.style.display = "block";
+      }
+    }
+  </script>
+
+  <!-- Try to register a service worker if provided (optional) -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker && navigator.serviceWorker.register('/sw.js').catch(() => {
+        /* service worker absent or failed - harmless */
+      });
+    }
+  </script>
+
+  <script src="/main.js"></script>
+ 
+  <footer style="text-align:center; font-size:0.9rem; color:#666; margin:1rem 0;">
+    &copy; 2025 Jasmin Tong
+  </footer>
+ </body>
+ </html>
