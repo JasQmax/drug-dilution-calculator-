@@ -595,12 +595,12 @@ Calculation:
 
   <!-- Try to register a service worker if provided (optional) -->
   <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker && navigator.serviceWorker.register('/sw.js').catch(() => {
-        /* service worker absent or failed - harmless */
-      });
-    }
-  </script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js').catch(() => {
+      /* service worker absent or failed - harmless */
+    });
+  }
+</script>
 
   <script src="/main.js"></script>
  
