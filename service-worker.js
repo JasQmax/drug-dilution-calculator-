@@ -7,7 +7,12 @@ const ASSETS_TO_CACHE = [
   '/styles.css',
   '/main.js',
   '/offline.html', // 👈 Add this
-  '/icon.png'
+  '/icons/icon-192.png',
+  '/icons/calculator.svg',
+  '/icons/vial.svg',
+  '/icons/dropper.svg',
+  '/icons/solution.svg',
+  '/icons/mix.svg'
 ];
 
 // Install event
