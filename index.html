@@ -113,7 +113,7 @@
       }
     }
 
-    /* Color mcg/mL green and mg/mL blue (also apply to mcg/mg where used) */
+    /* Color mcg/mL green and mg/mL blue and mmol/L purple (also apply to mcg/mg where used) */
     select option[value="mcg/mL"],
     select option[value="mcg"] {
       color: #2ca02c; /* green */
@@ -122,6 +122,11 @@
     select option[value="mg/mL"],
     select option[value="mg"] {
       color: #1f77b4; /* blue */
+    }
+    
+    select option[value="mmol/mL"],
+    select option[value="mmol"] {
+      color: ##6a0dad; /* purple for mmol/L
     }
 
     /* Make unit selects larger and bolder for easier reading */
@@ -167,7 +172,7 @@
 
     <label for="formType">Select drug form:</label>
     <select id="formType">
-      <option value="solution">Solution (mg/mL or mcg/mL)</option>
+      <option value="solution">Solution (mg/mL or mcg/mL or mmol/L)</option>
       <option value="powder">Powder (mg, g, or mcg) — dissolve then dilute</option>
     </select>
 
@@ -180,6 +185,7 @@
       <select id="stockUnits">
         <option value="mg/mL">mg/mL</option>
         <option value="mcg/mL">mcg/mL</option>
+        <option value="mmol/mL">mmol/mL</option>
       </select>
 
       <label for="desiredConc">Desired concentration:</label>
@@ -189,6 +195,7 @@
       <select id="desiredUnits">
         <option value="mg/mL">mg/mL</option>
         <option value="mcg/mL">mcg/mL</option>
+        <option value="mmol/mL">mmol/mL</option>
       </select>
 
       <label for="desiredVol">Final volume (mL):</label>
@@ -312,6 +319,8 @@
         select.style.color = "#2ca02c"; // green for mcg
       } else if (v.includes("mg")) {
         select.style.color = "#1f77b4"; // blue for mg
++     } else if (v.includes("mmol")) {
++       select.style.color = "#6a0dad"; // purple for mmol/L
       } else {
         select.style.color = ""; // default
       }
