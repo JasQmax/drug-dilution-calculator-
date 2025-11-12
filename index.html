@@ -10,14 +10,13 @@
   <meta name="theme-color" content="#007acc">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-
-  <!-- App icons for various platforms -->
-  <link rel="icon" type="image/svg+xml" href="icons/calculator.svg">
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-  <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
-</head>
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <!-- optional maskable icon for supported platforms -->
+  <link rel="icon" href="/icons/icon-192.png" sizes="192x192">
   
   <style>
+    /* increase all font sizes by 5% */
+    html { font-size: 105%; }
     /* Make all drop-downs (select elements) larger for better readability */
     select {
       font-size: 1rem;
@@ -113,7 +112,7 @@
       }
     }
 
-    /* Color mcg/mL green and mg/mL blue and mmol/L purple (also apply to mcg/mg where used) */
+    /* Color mcg/mL green and mg/mL blue (also apply to mcg/mg where used) */
     select option[value="mcg/mL"],
     select option[value="mcg"] {
       color: #2ca02c; /* green */
@@ -123,10 +122,10 @@
     select option[value="mg"] {
       color: #1f77b4; /* blue */
     }
-    
-    select option[value="mmol/mL"],
-    select option[value="mmol"] {
-      color: ##6a0dad; /* purple */
+
+    /* mmol/ml distinct color */
+    select option[value="mmol/ml"] {
+      color: #6a0dad; /* purple for mmol/ml */
     }
 
     /* Make unit selects larger and bolder for easier reading */
@@ -172,7 +171,7 @@
 
     <label for="formType">Select drug form:</label>
     <select id="formType">
-      <option value="solution">Solution (mg/mL or mcg/mL or mmol/L)</option>
+      <option value="solution">Solution (mg/mL or mcg/mL)</option>
       <option value="powder">Powder (mg, g, or mcg) — dissolve then dilute</option>
     </select>
 
@@ -184,8 +183,8 @@
       <label for="stockUnits">Units:</label>
       <select id="stockUnits">
         <option value="mg/mL">mg/mL</option>
+        <option value="mmol/ml">mmol/ml</option>
         <option value="mcg/mL">mcg/mL</option>
-        <option value="mmol/mL">mmol/mL</option>
       </select>
 
       <label for="desiredConc">Desired concentration:</label>
@@ -194,8 +193,8 @@
       <label for="desiredUnits">Units:</label>
       <select id="desiredUnits">
         <option value="mg/mL">mg/mL</option>
+        <option value="mmol/ml">mmol/ml</option>
         <option value="mcg/mL">mcg/mL</option>
-        <option value="mmol/mL">mmol/mL</option>
       </select>
 
       <label for="desiredVol">Final volume (mL):</label>
@@ -223,6 +222,7 @@
       <label for="desiredPowderUnits">Units:</label>
       <select id="desiredPowderUnits">
         <option value="mcg/mL">mcg/mL</option>
+        <option value="mmol/ml">mmol/ml</option>
         <option value="mg/mL">mg/mL</option>
       </select>
 
@@ -278,6 +278,30 @@
     </div>
   </div>
 
+  <div class="container">
+    <h2>KCl Dilution (mmol-based)</h2>
+
+    <label for="kclStockConc">Stock concentration (mmol/mL):</label>
+    <input type="number" id="kclStockConc" min="0" step="any" placeholder="e.g., 1.5" />
+
+    <label for="kclDesiredConc">Desired concentration (mmol/mL):</label>
+    <input type="number" id="kclDesiredConc" min="0" step="any" placeholder="e.g., 0.2" />
+
+    <label for="kclTotalMmol">Desired total amount (mmol):</label>
+    <input type="number" id="kclTotalMmol" min="0" step="any" placeholder="e.g., 10" />
+
+    <button onclick="calculateKCl()">Calculate KCl dilution</button>
+    <button type="button" onclick="clearKCl()" style="margin-left:8px; background:#666;">Clear</button>
+    <button type="button" id="toggleKclCalcBtn" style="margin-left:8px; display:none; background:#444;" onclick="toggleKclCalc()">Show calculations</button>
+
+    <div class="result" id="kclResult"></div>
+    <div id="kclCalcDetails" class="calc-details" aria-hidden="true"></div>
+
+    <div class="note">
+      KCl calculations use mmol and mL units. Inputs expect stock concentration in mmol/mL and desired concentration in mmol/mL.
+    </div>
+  </div>
+
   <div class="container" aria-hidden="false" style="margin-bottom:2rem;">
     <div class="note" style="background:#fff7f0; border-left:4px solid #0095ff;">
       <strong>Medical Disclaimer:</strong> The calculations and content presented are intended for use by healthcare professionals as a supplementary tool and are not a substitute for independent medical judgment. While efforts are made to ensure accuracy, we do not warrant that the information is complete or error-free. Users must verify all calculations and data before use on patients and should not rely solely on this tool to guide patient care or substitute for clinical judgment. The creators and distributors of this tool disclaim any and all responsibility or liability for any injury or damage resulting from its use.
@@ -319,8 +343,8 @@
         select.style.color = "#2ca02c"; // green for mcg
       } else if (v.includes("mg")) {
         select.style.color = "#1f77b4"; // blue for mg
-+     } else if (v.includes("mmol")) {
-+       select.style.color = "#6a0dad"; // purple for mmol/L
+      } else if (v.includes("mmol")) {
+        select.style.color = "#6a0dad"; // purple for mmol/ml
       } else {
         select.style.color = ""; // default
       }
@@ -332,6 +356,90 @@
       updateSelectColor(s);
       s.addEventListener("change", () => updateSelectColor(s));
     });
+ 
+    // If stockUnits is set to mmol/ml, automatically choose mmol/ml for desiredUnits.
+    // When stockUnits is changed away from mmol/ml, restore previous desiredUnits selection.
+    (function syncStockDesiredUnits() {
+      const stockSel = document.getElementById("stockUnits");
+      const desiredSel = document.getElementById("desiredUnits");
+      if (!stockSel || !desiredSel) return;
+
+      let prevDesired = desiredSel.value;
+
+      function setMmolForced() {
+        if (String(desiredSel.value).toLowerCase() !== "mmol/ml") prevDesired = desiredSel.value;
+        desiredSel.value = "mmol/ml";
+        desiredSel.disabled = true;
+        desiredSel.style.opacity = "0.6";
+        updateSelectColor(desiredSel);
+      }
+
+      function enableDesired() {
+        desiredSel.disabled = false;
+        desiredSel.style.opacity = "1";
+        updateSelectColor(desiredSel);
+      }
+
+      function apply() {
+        const s = String(stockSel.value).toLowerCase();
+
+        // If stock is mmol -> force desired to mmol
+        if (s.includes("mmol")) {
+          setMmolForced();
+          // ensure mmol option enabled (in case it was disabled previously)
+          const o = Array.from(desiredSel.options).find(o => String(o.value).toLowerCase() === "mmol/ml");
+          if (o) o.disabled = false;
+          return;
+        }
+
+        // If stock is mg or mcg -> mmol must NOT be selectable
+        if (s.includes("mg") || s.includes("mcg")) {
+          // disable mmol option
+          const mmolOpt = Array.from(desiredSel.options).find(o => String(o.value).toLowerCase() === "mmol/ml");
+          if (mmolOpt) mmolOpt.disabled = true;
+
+          // enable desired select and pick a matching unit:
+          enableDesired();
+          // Prefer same scale as stock: mg -> mg/mL, mcg -> mcg/mL
+          if (s.includes("mg")) {
+            if (String(desiredSel.value).toLowerCase() === "mmol/ml" || String(desiredSel.value).toLowerCase().includes("mcg")) {
+              desiredSel.value = "mg/mL";
+            } else if (prevDesired && String(prevDesired).toLowerCase() !== "mmol/ml") {
+              desiredSel.value = prevDesired;
+            } else {
+              desiredSel.value = "mg/mL";
+            }
+          } else { // mcg
+            if (String(desiredSel.value).toLowerCase() === "mmol/ml" || String(desiredSel.value).toLowerCase().includes("mg")) {
+              desiredSel.value = "mcg/mL";
+            } else if (prevDesired && String(prevDesired).toLowerCase() !== "mmol/ml") {
+              desiredSel.value = prevDesired;
+            } else {
+              desiredSel.value = "mcg/mL";
+            }
+          }
+
+          updateSelectColor(desiredSel);
+          return;
+        }
+
+        // Other stock units: re-enable mmol option if present and restore previous desired
+        const mmolOption = Array.from(desiredSel.options).find(o => String(o.value).toLowerCase() === "mmol/ml");
+        if (mmolOption) mmolOption.disabled = false;
+        enableDesired();
+        try { desiredSel.value = prevDesired; } catch (e) { /* ignore */ }
+        updateSelectColor(desiredSel);
+      }
+
+      // track manual changes to desiredSel so we can restore when appropriate
+      desiredSel.addEventListener("change", () => {
+        if (!desiredSel.disabled && String(desiredSel.value).toLowerCase() !== "mmol/ml") prevDesired = desiredSel.value;
+      });
+
+      stockSel.addEventListener("change", apply);
+      // apply initial state
+      apply();
+    })();
  
     formType.addEventListener("change", () => {
       if (formType.value === "solution") {
@@ -534,6 +642,74 @@ Calculation:
       document.getElementById("toggleLocalCalcBtn").style.display = "inline-block";
     }
 
+    // KCl calculation: stock conc (mmol/mL), desired conc (mmol/mL), desired total amount (mmol)
+    function calculateKCl() {
+      const out = document.getElementById("kclResult");
+      const calcDiv = document.getElementById("kclCalcDetails");
+      out.style.display = "none";
+      out.innerHTML = "";
+      calcDiv.style.display = "none";
+      calcDiv.textContent = "";
+      document.getElementById("toggleKclCalcBtn").style.display = "none";
+
+      const stock = parseFloat(document.getElementById("kclStockConc").value);
+      const desired = parseFloat(document.getElementById("kclDesiredConc").value);
+      const totalMmol = parseFloat(document.getElementById("kclTotalMmol").value);
+
+      if (!isFinite(stock) || !isFinite(desired) || !isFinite(totalMmol) ||
+          stock <= 0 || desired <= 0 || totalMmol <= 0) {
+        alert("Please enter valid positive numbers for stock conc, desired conc and total mmol.");
+        return;
+      }
+
+      // desired concentration cannot exceed stock when diluting
+      if (desired > stock) {
+        alert("Desired concentration is higher than the stock concentration — dilution cannot produce a higher concentration.");
+        return;
+      }
+
+      // Volumes (mL)
+      const volStock = totalMmol / stock;        // mL of stock needed to supply total mmol
+      const finalVolume = totalMmol / desired;  // mL final volume to achieve desired conc
+      const volDiluent = finalVolume - volStock;
+
+      if (volDiluent < -1e-9) {
+        alert("Calculated diluent volume is negative — check inputs.");
+        return;
+      }
+
+      out.innerHTML = `
+        <p><strong>Stock volume to withdraw:</strong> ${volStock.toFixed(3)} mL (from ${stock.toFixed(4)} mmol/mL stock)</p>
+        <p><strong>Final total volume required:</strong> ${finalVolume.toFixed(3)} mL to contain ${totalMmol.toFixed(6)} mmol at ${desired.toFixed(6)} mmol/mL</p>
+        <p><strong>Volume of diluent to add:</strong> ${volDiluent.toFixed(3)} mL</p>
+      `;
+      out.style.display = "block";
+
+      const calcText =
+`KCl dilution calculation (mmol / mL)
++
+Inputs:
+  stock_conc = ${stock} mmol/mL
+  desired_conc = ${desired} mmol/mL
+  total_amount = ${totalMmol} mmol
++
+Calculations:
+  volume_of_stock_needed = total_amount / stock_conc
+                         = ${totalMmol} / ${stock}
+                         = ${volStock.toFixed(6)} mL
++
+  final_volume_required = total_amount / desired_conc
+                         = ${totalMmol} / ${desired}
+                         = ${finalVolume.toFixed(6)} mL
++
+  volume_of_diluent = final_volume_required - volume_of_stock_needed
+                    = ${finalVolume.toFixed(6)} - ${volStock.toFixed(6)}
+                    = ${volDiluent.toFixed(6)} mL`;
+
+      calcDiv.textContent = calcText;
+      document.getElementById("toggleKclCalcBtn").style.display = "inline-block";
+    }
+
     function toggleCalc() {
       const d = document.getElementById("calcDetails");
       const btn = document.getElementById("toggleCalcBtn");
@@ -552,6 +728,21 @@ Calculation:
     function toggleLocalCalc() {
       const d = document.getElementById("localCalcDetails");
       const btn = document.getElementById("toggleLocalCalcBtn");
+      if (!d) return;
+      if (d.style.display === "none" || d.style.display === "") {
+        d.style.display = "block";
+        btn.textContent = "Hide calculations";
+        d.setAttribute("aria-hidden", "false");
+      } else {
+        d.style.display = "none";
+        btn.textContent = "Show calculations";
+        d.setAttribute("aria-hidden", "true");
+      }
+    }
+
+    function toggleKclCalc() {
+      const d = document.getElementById("kclCalcDetails");
+      const btn = document.getElementById("toggleKclCalcBtn");
       if (!d) return;
       if (d.style.display === "none" || d.style.display === "") {
         d.style.display = "block";
@@ -600,21 +791,39 @@ Calculation:
         powderSection.style.display = "block";
       }
     }
+
+    function clearKCl() {
+      document.getElementById("kclStockConc").value = "";
+      document.getElementById("kclDesiredConc").value = "";
+      document.getElementById("kclTotalMmol").value = "";
+      const out = document.getElementById("kclResult");
+      if (out) { out.style.display = "none"; out.innerHTML = ""; }
+      const calcDiv = document.getElementById("kclCalcDetails");
+      if (calcDiv) { calcDiv.style.display = "none"; calcDiv.textContent = ""; }
+      const btn = document.getElementById("toggleKclCalcBtn");
+      if (btn) btn.style.display = "none";
+    }
+    // ensure clearAll also clears KCl area
+    const _origClearAll = clearAll;
+    clearAll = function() {
+      _origClearAll();
+      clearKCl();
+    };
   </script>
 
   <!-- Try to register a service worker if provided (optional) -->
   <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js').catch(() => {
-      /* service worker absent or failed - harmless */
-    });
-  }
-</script>
-
-  <script src="/main.js"></script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker && navigator.serviceWorker.register('/sw.js').catch(() => {
+        /* service worker absent or failed - harmless */
+      });
+    }
+  </script>
  
   <footer style="text-align:center; font-size:0.9rem; color:#666; margin:1rem 0;">
     &copy; 2025 Jasmin Tong
   </footer>
- </body>
+
+
+</html></body> </body>
  </html>
